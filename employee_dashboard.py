@@ -36,13 +36,103 @@ def create_sidebar_filters(df):
   
   remote = st.sidebar.radio(
     "Select Remote(s)",
-    options=["All", "Yes", " No"],
+    options=["All", "Yes", "No"],
     index=0
   )
   
   return department, location, remote
 
 
+def filter_data(df, department, location, remote):
+  filtered_df = df[df["Department"].isin(department) & df["Office Location"].isin(location)]
+  if remote != "All":
+    filtered_df = filtered_df[filtered_df["Remote"] == remote]
+  
+  return filtered_df
+
+
+def display_metrics(filtered_df):
+  col1, col2, col3, col4 = st.columns(4)
+  
+  with col1:
+    st.metric("👤 Total Employee", len(filtered_df))
+  
+  with col2:
+    avg_salary = filtered_df["Salary"].mean() if len(filtered_df) > 0 else 0
+    st.metric("💲 Average Salary", f"${avg_salary:,.2f}")
+  
+  with col3:
+    avg_performance = filtered_df["Performance"].mean() if len(filtered_df) > 0 else 0
+    st.metric("📊 Average Performance", f"${avg_performance:.1f}")
+  
+  with col4:
+    remote_pct = (filtered_df["Remote"] == "Yes").sum() / len(filtered_df) * 100 if len(filtered_df) > 0 else 0
+    st.metric("👤 Remote Worker", f"{remote_pct:.1f}%")
+    
+  
+  
+def display_chart(filtered_df):
+  if len(filtered_df) == 0:
+    st.warning("No filter data to display. Please adjust the data from the sidebar.")
+    return
+  
+  col1, col2 = st.columns(2)
+
+  with col1:
+    st.subheader("Employee Distribution By Department")
+    dept_count = filtered_df["Department"].value_counts()
+    fig1 = px.pie(
+      values=dept_count.values,
+      names=dept_count.index,
+      hole=0.4
+    )
+    st.plotly_chart(fig1, width="stretch")
+  
+  with col2:
+    st.subheader("Average Salary by Department")
+    avg_salary = filtered_df.groupby("Department")["Salary"].mean().sort_values(ascending=False)
+    fig2 = px.bar(
+      x=avg_salary.values,
+      y=avg_salary.index
+    )
+    fig2.update_layout(
+      xaxis_title = "Salary",
+      yaxis_title = "Department"
+    )
+    st.plotly_chart(fig2, width="stretch")
+  
+  col3, col4 = st.columns(2)
+  
+  with col3:
+    st.subheader("Performance Distribution")
+    fig3 = px.histogram(
+      filtered_df,
+      x="Performance",
+      nbins=6
+    )
+    fig3.update_traces(
+      marker_line_color="white",
+      marker_line_width=1
+    )
+    fig3.update_layout(
+      xaxis_title="Performance",
+      yaxis_title="Count"
+    )
+    st.plotly_chart(fig3, width='stretch')
+  
+  with col4:
+    st.subheader("Exployee by Office Location")
+    location_count = filtered_df["Office Location"].value_counts()
+    fig4 = px.bar(
+      x=location_count.index,
+      y=location_count.values,
+      orientation='v'
+    )
+    fig4.update_layout(
+      xaxis_title="Office Location",
+      yaxis_title="Counts"
+    )
+    st.plotly_chart(fig4, width="stretch")
 
 
 def main():
@@ -51,6 +141,19 @@ def main():
   
   #sidebar
   department, location, remote = create_sidebar_filters(df)
+  
+  #filtered_df
+  filtered_df = filter_data(df, department, location, remote)
+  
+  #main layout
+  st.title("Employee Dashboard")
+  st.markdown("---")
+  
+  #metric
+  display_metrics(filtered_df)
+  
+  #display charts
+  display_chart(filtered_df)
 
 if __name__ == "__main__":
   main()
